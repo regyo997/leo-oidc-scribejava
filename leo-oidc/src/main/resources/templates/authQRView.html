@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Login</title>
+    <script>
+        function checkSessionStatus(sessionId) {
+            fetch(`/session-status?sessionId=${sessionId}`)
+                .then(response => response.text())
+                .then(status => {
+                    if (status !== "PENDING") {
+                        window.location.href = `/callbackQR?accessToken=${status}`;
+                    } else {
+                        setTimeout(() => checkSessionStatus(sessionId), 2000);
+                    }
+                });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const sessionId = [[${sessionId}]];
+            console.log("${sessionId} = " + [[${sessionId}]]);
+            console.log("sessionId = " + sessionId);
+            checkSessionStatus(sessionId);
+        });
+    </script>
+</head>
+<body>
+    <h1>Login with Google</h1>
+    <img th:src="${qrCodeImage}" alt="QR Code應該要在這">
+</body>
+</html>

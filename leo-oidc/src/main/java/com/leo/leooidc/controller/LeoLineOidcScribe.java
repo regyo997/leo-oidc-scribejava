@@ -59,14 +59,14 @@ public class LeoLineOidcScribe {
     private static final String PROTECTED_RESOURCE_URL = "https://api.line.me/oauth2/v2.1/userinfo";
     private static final String CERT_URL = "https://api.line.me/oauth2/v2.1/certs";
 
-    final String clientId = "1003429497";
-    final String clientSecret = "c1289359634f07e88335518166069461";
+    final String clientId = "2004190739";
+    final String clientSecret = "cc8a27ea8fb33f213cf5a6aba3fdcbb8";
 
     private ObjectMapper mapper = new ObjectMapper();
 
     final OAuth20Service oAuth20Service = new ServiceBuilder(clientId)
             .apiSecret(clientSecret)
-            .defaultScope("openid profile")
+            .defaultScope("openid profile email")
             .callback("http://localhost/line/callback")
             .build(LineApi20.instance());
 

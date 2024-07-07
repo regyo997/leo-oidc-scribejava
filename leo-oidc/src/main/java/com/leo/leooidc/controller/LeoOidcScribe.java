@@ -62,7 +62,7 @@ public class LeoOidcScribe {
 
     final OAuth20Service oAuth20Service = new ServiceBuilder(clientId)
             .apiSecret(clientSecret)
-            .defaultScope("openid profile")
+            .defaultScope("openid profile email")
             .callback("http://leo.com/callback")
             .build(GoogleApi20.instance());
 
