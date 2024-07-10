@@ -70,7 +70,7 @@ public class LeoQRCodeOidcScribe {
             .callback("http://leo.com/mobile-callback")
             .build(GoogleApi20.instance());
 
-    Cache<String, AuthorizationUrlBuilder> cache = Caffeine.newBuilder()
+    Cache<String, CacheVO> cache = Caffeine.newBuilder()
             .expireAfterWrite(3, TimeUnit.MINUTES)
             .maximumSize(100)
             .build();
@@ -113,9 +113,9 @@ public class LeoQRCodeOidcScribe {
     }
 
     @GetMapping("/authQR")
-    public String authQR(HttpSession session, HttpServletResponse response, Model model) throws IOException, ExecutionException, InterruptedException, WriterException {
+    public String authQR(HttpServletResponse response, Model model) throws IOException, ExecutionException, InterruptedException, WriterException {
         final String state = String.valueOf(new Random().nextInt(999_999));
-        String qrCodeImage = generateQRCodeImage(getAuthURL(session, state));
+        String qrCodeImage = generateQRCodeImage(getAuthURL(state));
         model.addAttribute("qrCodeImage", qrCodeImage);
         model.addAttribute("sessionId", state);
 
@@ -125,17 +125,13 @@ public class LeoQRCodeOidcScribe {
     @GetMapping("/mobile-callback")
     @ResponseBody
     public String handleMobileCallback(@RequestParam("code") String code, @RequestParam("state") String returnedState, HttpSession session, HttpServletResponse response) throws IOException, ExecutionException, InterruptedException {
-        String storedState = (String) session.getAttribute("oauthState");
-        String storedNonce = (String) session.getAttribute("oauthNonce");
+        CacheVO cacheVO = cache.getIfPresent(returnedState);
 
-        if (storedState == null || !storedState.equals(returnedState)) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "State mismatch");
-            return "state不符合";
+        if (cacheVO == null) {
+            return "無效請求";
         }
-        AuthorizationUrlBuilder authorizationUrlBuilder = cache.getIfPresent(storedState);
-        if (authorizationUrlBuilder == null) {
-            return "授權碼失效";
-        }
+        AuthorizationUrlBuilder authorizationUrlBuilder = cacheVO.builder;
+        String storedNonce = cacheVO.nonce;
 
         // 使用返回的授權碼換取 access token
         OpenIdOAuth2AccessToken accessToken = (OpenIdOAuth2AccessToken)this.oAuth20ServiceQR.getAccessToken(
@@ -182,10 +178,8 @@ public class LeoQRCodeOidcScribe {
         return "Logged in with access token: " + accessToken;
     }
 
-    private String getAuthURL(HttpSession session, String state) {
-        session.setAttribute("oauthState", state);
+    private String getAuthURL(String state) {
         final String nonce = UUID.randomUUID().toString();
-        session.setAttribute("oauthNonce", nonce);
 
         final Map<String, String> additionalParams = new HashMap<>();
         additionalParams.put("access_type", "offline");
@@ -200,7 +194,7 @@ public class LeoQRCodeOidcScribe {
                 .state(state)
                 .additionalParams(additionalParams)
                 .initPKCE();
-        cache.put(state, authorizationUrlBuilder);
+        cache.put(state, new CacheVO(authorizationUrlBuilder, nonce));
         return authorizationUrlBuilder.build();
 
     }
@@ -218,5 +212,14 @@ public class LeoQRCodeOidcScribe {
         MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngOutputStream);
 
         return "data:image/png;base64," + Base64.getEncoder().encodeToString(pngOutputStream.toByteArray());
+    }
+
+    private class CacheVO {
+        CacheVO(AuthorizationUrlBuilder builder, String nonce) {
+            this.builder = builder;
+            this.nonce = nonce;
+        }
+        AuthorizationUrlBuilder builder;
+        String nonce;
     }
 }
